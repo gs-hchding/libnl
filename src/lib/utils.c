@@ -146,6 +146,8 @@ int nl_cli_parse_dumptype(const char *str)
 		return NL_DUMP_DETAILS;
 	else if (!strcasecmp(str, "stats"))
 		return NL_DUMP_STATS;
+	else if (!strcasecmp(str, "json"))
+		return NL_DUMP_JSON;
 	else
 		nl_cli_fatal(EINVAL, "Invalid dump type \"%s\".\n", str);
 

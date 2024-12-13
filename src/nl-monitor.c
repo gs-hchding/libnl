@@ -54,26 +54,26 @@ static void print_usage(void)
 {
 	int i;
 
-        printf(
+	printf(
 	"Usage: nl-monitor [OPTION] [<groups>]\n"
 	"\n"
 	"Options\n"
 	" -d, --debug=LEVEL     Set libnl debug level { 0 - 7 }\n"
-	" -f, --format=TYPE     Output format { brief | details | stats }\n"
+	" -f, --format=TYPE     Output format { brief | details | stats | json }\n"
 	" -h, --help            Show this help.\n"
 	"\n"
-        );
+	);
 	printf("Known groups:");
 	for (i = 0; known_groups[i].gr_id != RTNLGRP_NONE; i++)
 		printf(" %s", known_groups[i].gr_name);
 	printf("\n");
-        exit(0);
+	exit(0);
 }
 
 int main(int argc, char *argv[])
 {
 	struct nl_dump_params dp = {
-		.dp_type = NL_DUMP_STATS,
+		.dp_type = NL_DUMP_JSON,
 		.dp_fd = stdout,
 		.dp_dump_msgtype = 1,
 	};
@@ -97,13 +97,13 @@ int main(int argc, char *argv[])
 
 		c = getopt_long(argc, argv, "d:f:h", long_opts, &optidx);
 		if (c == -1)
-                        break;
+			break;
 
-                switch (c) {
+		switch (c) {
 		case 'd':
 			nl_debug = atoi(optarg);
 			break;
-                case 'f':
+		case 'f':
 			dp.dp_type = nl_cli_parse_dumptype(optarg);
 			break;
 		default:

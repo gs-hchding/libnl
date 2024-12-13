@@ -274,7 +274,7 @@ static int addr_msg_parser(struct nl_cache_ops *ops, struct sockaddr_nl *who,
 	/* IPv6 only */
 	if (tb[IFA_CACHEINFO]) {
 		struct ifa_cacheinfo *ca;
-		
+
 		ca = nla_data(tb[IFA_CACHEINFO]);
 		addr->a_cacheinfo.aci_prefered = ca->ifa_prefered;
 		addr->a_cacheinfo.aci_valid = ca->ifa_valid;
@@ -407,6 +407,46 @@ static int addr_request_update(struct nl_cache *cache, struct nl_sock *sk)
 	return nl_rtgen_request(sk, RTM_GETADDR, AF_UNSPEC, NLM_F_DUMP);
 }
 
+static void addr_dump_json(struct nl_object *obj, struct nl_dump_params *p)
+{
+	char buf[128];
+	struct rtnl_addr *addr = (struct rtnl_addr *) obj;
+	struct nl_cache *link_cache;
+
+	if (addr->ce_msgtype < RTM_BASE) {
+		nl_dump(p, "{ \"type\": \"addr\", \"msgtype\": \"%s\" }\n", \
+			nl_nlmsgtype2str(addr->ce_msgtype, buf, sizeof(buf)));
+		return ;
+	}
+
+	nl_dump(p, "{ \"type\": \"addr\", \"msgtype\": \"%s\", ", nl_msgtype_str(addr->ce_msgtype));
+
+	if (addr->ce_mask & ADDR_ATTR_LOCAL)
+		nl_addr2str(addr->a_local, buf, sizeof(buf));
+	else
+		strcpy(buf, "none");
+	nl_dump(p, "\"local\": \"%s\", ",  buf);
+
+	if (addr->ce_mask & ADDR_ATTR_PEER) {
+		nl_dump(p, "\"peer\": \"%s\", ", nl_addr2str(addr->a_peer, buf, sizeof(buf)));
+	}
+
+	nl_dump(p, "\"family\": \"%s\", ", addr->a_family == AF_UNSPEC ? "AF_UNSPEC" : \
+		nl_af2str(addr->a_family, buf, sizeof(buf)) );
+
+	link_cache = nl_cache_mngt_require_safe("route/link");
+	if (link_cache) {
+		nl_dump(p, "\"dev\": \"%s\", ", rtnl_link_i2name(link_cache, addr->a_ifindex, buf, sizeof(buf)));
+		nl_cache_put(link_cache);
+	} else {
+		nl_dump(p, "\"dev\": \"%d\", ", addr->a_ifindex);
+	}
+
+	nl_dump(p, "\"scope\": \"%s\", ", rtnl_scope2str(addr->a_scope, buf, sizeof(buf)));
+
+	nl_dump(p, "\"flags\": \"%s\" }\n", rtnl_link_flags2str(addr->a_flags, buf, sizeof(buf)));
+}
+
 static void addr_dump_line(struct nl_object *obj, struct nl_dump_params *p)
 {
 	struct rtnl_addr *addr = (struct rtnl_addr *) obj;
@@ -494,7 +534,7 @@ static void addr_dump_details(struct nl_object *obj, struct nl_dump_params *p)
 		nl_dump_line(p, "   created boot-time+%s ",
 			     nl_msec2str(addr->a_cacheinfo.aci_cstamp * 10,
 					   buf, sizeof(buf)));
-		    
+
 		nl_dump(p, "last-updated boot-time+%s\n",
 			nl_msec2str(addr->a_cacheinfo.aci_tstamp * 10,
 				      buf, sizeof(buf)));
@@ -767,7 +807,7 @@ int rtnl_addr_build_add_request(struct rtnl_addr *addr, int flags,
 
 	if ((addr->ce_mask & required) != required)
 		return -NLE_MISSING_ATTR;
-	
+
 	return build_addr_msg(addr, RTM_NEWADDR, NLM_F_CREATE | flags, result);
 }
 
@@ -1208,6 +1248,7 @@ static struct nl_object_ops addr_obj_ops = {
 	    [NL_DUMP_LINE] 	= addr_dump_line,
 	    [NL_DUMP_DETAILS]	= addr_dump_details,
 	    [NL_DUMP_STATS]	= addr_dump_stats,
+	    [NL_DUMP_JSON]	= addr_dump_json,
 	},
 	.oo_compare		= addr_compare,
 	.oo_attrs2str		= addr_attrs2str,

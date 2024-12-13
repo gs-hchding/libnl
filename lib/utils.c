@@ -217,7 +217,7 @@ const char *nl_strerror_l(int err)
  * Cancels down a byte counter until it reaches a reasonable
  * unit. The chosen unit is assigned to \a unit.
  * This function assume 1024 bytes in one kilobyte
- * 
+ *
  * @return The cancelled down byte counter in the new unit.
  */
 double nl_cancel_down_bytes(unsigned long long l, char **unit)
@@ -486,7 +486,7 @@ static double ticks_per_usec = 1.0f;
  *
  * Supports the environment variables:
  *   PROC_NET_PSCHED  - may point to psched file in /proc
- *   PROC_ROOT        - may point to /proc fs */ 
+ *   PROC_ROOT        - may point to /proc fs */
 static void get_psched_settings(void)
 {
 	char name[FILENAME_MAX];
@@ -1312,6 +1312,49 @@ int nl_has_capability (int capability)
 		return 0;
 	capability--;
 	return (caps[capability / 8] & (1 << (capability % 8))) != 0;
+}
+
+#define RTM_CMD_ONE(cmd)   [cmd - RTM_BASE] = # cmd
+#define RTM_CMD_GROUP(name)  RTM_CMD_ONE(RTM_NEW ## name), RTM_CMD_ONE(RTM_DEL ## name), RTM_CMD_ONE(RTM_GET ## name)
+
+static const char * __nl_msgtype_str[__RTM_MAX - RTM_BASE] = {
+	RTM_CMD_GROUP(LINK), RTM_CMD_ONE(RTM_SETLINK),
+	RTM_CMD_GROUP(ADDR),
+	RTM_CMD_GROUP(ROUTE),
+	RTM_CMD_GROUP(NEIGH),
+	RTM_CMD_GROUP(RULE),
+	RTM_CMD_GROUP(QDISC),
+	RTM_CMD_GROUP(TCLASS),
+	RTM_CMD_GROUP(TFILTER),
+	RTM_CMD_GROUP(ACTION),
+	RTM_CMD_ONE(RTM_NEWPREFIX),
+	RTM_CMD_ONE(RTM_GETMULTICAST),
+
+	RTM_CMD_ONE(RTM_NEWNEIGHTBL), RTM_CMD_ONE(RTM_GETNEIGHTBL), RTM_CMD_ONE(RTM_SETNEIGHTBL),
+	RTM_CMD_ONE(RTM_NEWNDUSEROPT),
+	RTM_CMD_GROUP(ADDRLABEL),
+	RTM_CMD_ONE(RTM_GETDCB), RTM_CMD_ONE(RTM_SETDCB),
+
+	RTM_CMD_GROUP(NETCONF),
+	RTM_CMD_GROUP(MDB),
+	RTM_CMD_GROUP(NSID),
+
+	RTM_CMD_ONE(RTM_NEWSTATS), RTM_CMD_ONE(RTM_GETSTATS), RTM_CMD_ONE(RTM_SETSTATS),
+	RTM_CMD_ONE(RTM_NEWCACHEREPORT),
+	RTM_CMD_GROUP(CHAIN),
+	RTM_CMD_GROUP(NEXTHOP),
+	RTM_CMD_GROUP(LINKPROP),
+	RTM_CMD_GROUP(VLAN),
+	RTM_CMD_GROUP(NEXTHOPBUCKET),
+	RTM_CMD_GROUP(TUNNEL),
+};
+
+const char * nl_msgtype_str(int cmd)
+{
+	if (cmd > 0 && cmd < __RTM_MAX && __nl_msgtype_str[cmd])
+		return __nl_msgtype_str[cmd - RTM_BASE];
+
+	return "RTM_NONE";
 }
 
 /** @endcond */

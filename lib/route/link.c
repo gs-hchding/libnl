@@ -858,6 +858,44 @@ static int link_request_update(struct nl_cache *cache, struct nl_sock *sk)
 	return 0;
 }
 
+static void link_dump_json(struct nl_object *obj, struct nl_dump_params *p)
+{
+	char buf[128];
+	struct rtnl_link *link = (struct rtnl_link *) obj;
+	struct nl_cache *cache = obj->ce_cache;
+	int fetched_cache = 0;
+
+	if (link->ce_msgtype < RTM_BASE) {
+		nl_dump(p, "{ \"type\": \"link\", \"msgtype\": \"%s\" }\n", \
+			nl_nlmsgtype2str(link->ce_msgtype, buf, sizeof(buf)));
+		return ;
+	}
+
+	if (!cache) {
+		cache = nl_cache_mngt_require_safe("route/link");
+		fetched_cache = 1;
+	}
+
+	nl_dump(p, "{ \"type\": \"link\", \"msgtype\": \"%s\", ", nl_msgtype_str(link->ce_msgtype));
+
+	nl_dump(p, "\"family\": \"%s\", ", link->l_family == AF_UNSPEC ? "AF_UNSPEC" : \
+		nl_af2str(link->l_family, buf, sizeof(buf)) );
+
+	nl_dump(p, "\"name\": \"%s\", \"arptype\": \"%s\", ", link->l_name, nl_addr2str(link->l_addr, buf, sizeof(buf)));
+	nl_dump(p, "\"addr\": \"%s\", ", nl_addr2str(link->l_addr, buf, sizeof(buf)));
+	nl_dump(p, "\"perm-addr\": \"%s\", ", nl_addr2str(link->l_paddr, buf, sizeof(buf)));
+	if (link->ce_mask & LINK_ATTR_MASTER) {
+		_nl_auto_rtnl_link struct rtnl_link *master = rtnl_link_get(cache, link->l_master);
+		nl_dump(p, "\"master\": \"%s\", ", master ? master->l_name : "none");
+	}
+
+	nl_dump(p, "\"flags\": \"%s\" }\n", rtnl_link_flags2str(link->l_flags, buf, sizeof(buf)));
+
+	if (fetched_cache) {
+		nl_cache_put(cache);
+	}
+}
+
 static void link_dump_line(struct nl_object *obj, struct nl_dump_params *p)
 {
 	char buf[128];
@@ -3212,6 +3250,7 @@ static struct nl_object_ops link_obj_ops = {
 	    [NL_DUMP_LINE]	= link_dump_line,
 	    [NL_DUMP_DETAILS]	= link_dump_details,
 	    [NL_DUMP_STATS]	= link_dump_stats,
+	    [NL_DUMP_JSON]	= link_dump_json,
 	},
 	.oo_compare		= link_compare,
 	.oo_keygen		= link_keygen,

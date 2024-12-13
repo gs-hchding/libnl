@@ -41,6 +41,7 @@ enum nl_dump_type {
 	NL_DUMP_LINE,		/**< Dump object briefly on one line */
 	NL_DUMP_DETAILS,	/**< Dump all attributes but no statistics */
 	NL_DUMP_STATS,		/**< Dump all attributes including statistics */
+	NL_DUMP_JSON,		/**< Dump all attributes in json */
 	__NL_DUMP_MAX,
 };
 

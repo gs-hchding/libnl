@@ -43,6 +43,8 @@ enum {
 	NL_BIT_RATE,
 };
 
+const char * nl_msgtype_str(int);
+
 /* unit pretty-printing */
 extern double	nl_cancel_down_bytes(unsigned long long, char **);
 extern double	nl_cancel_down_bits(unsigned long long, char **);

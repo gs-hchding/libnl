@@ -384,4 +384,5 @@ global:
 	nla_put_sint;
 	nla_get_uint;
 	nla_put_uint;
+	nl_msgtype_str;
 } libnl_3_10;

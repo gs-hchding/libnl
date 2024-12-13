@@ -528,6 +528,72 @@ static int neigh_request_update(struct nl_cache *c, struct nl_sock *h)
 }
 
 
+static void neigh_dump_json(struct nl_object *a, struct nl_dump_params *p)
+{
+	char dst[INET6_ADDRSTRLEN+5], lladdr[INET6_ADDRSTRLEN+5];
+	struct rtnl_neigh *n = (struct rtnl_neigh *) a;
+	struct nl_cache *link_cache;
+	char state[128], flags[64], ext_flags[64];
+	char buf[128];
+
+	link_cache = nl_cache_mngt_require_safe("route/link");
+
+	if (n->ce_msgtype < RTM_BASE) {
+		nl_dump(p, "{ \"type\": \"neigh\", \"msgtype\": \"%s\" }\n", \
+			nl_nlmsgtype2str(n->ce_msgtype, buf, sizeof(buf)));
+		return ;
+	}
+
+	nl_dump(p, "{ \"type\": \"neigh\", \"msgtype\": \"%s\"", nl_msgtype_str(n->ce_msgtype));
+
+	nl_dump(p, "\"family\": \"%s\"", n->n_family == AF_UNSPEC ? "AF_UNSPEC" : \
+		nl_af2str(n->n_family, buf, sizeof(buf)) );
+
+	if (n->ce_mask & NEIGH_ATTR_DST)
+		nl_dump(p, ", \"dst\": \"%s\"", nl_addr2str(n->n_dst, dst, sizeof(dst)));
+
+	if (link_cache)
+		nl_dump(p, ", \"dev\":  \"%s\"",
+			rtnl_link_i2name(link_cache, n->n_ifindex,
+					 state, sizeof(state)));
+	else
+		nl_dump(p, ", \"dev\":  \"%d\"", n->n_ifindex);
+
+	if (n->ce_mask & NEIGH_ATTR_LLADDR)
+		nl_dump(p, ", \"lladdr\": \"%s\"",
+			nl_addr2str(n->n_lladdr, lladdr, sizeof(lladdr)));
+
+	if (n->ce_mask & NEIGH_ATTR_VLAN)
+		nl_dump(p, ", \"vlan\" \"%d\"", n->n_vlan);
+
+	if (n->ce_mask & NEIGH_ATTR_NHID)
+		nl_dump(p, ", \"nhid\" \"%u\"", n->n_nhid);
+
+	if (n->ce_mask & NEIGH_ATTR_MASTER) {
+		if (link_cache)
+			nl_dump(p, ", \"master\": \"%s\"", rtnl_link_i2name(link_cache, n->n_master,
+							   state, sizeof(state)));
+		else
+			nl_dump(p, ", \"master\": \"%d\"", n->n_master);
+	}
+
+	rtnl_neigh_state2str(n->n_state, state, sizeof(state));
+	rtnl_neigh_flags2str(n->n_flags, flags, sizeof(flags));
+	rtnl_neigh_extflags2str(n->n_ext_flags, ext_flags, sizeof(ext_flags));
+
+	if (state[0])
+		nl_dump(p, ", \"state\": \"%s\"", state);
+	if (flags[0])
+		nl_dump(p, ", \"flags\": \"%s\"", flags);
+	if (ext_flags[0])
+		nl_dump(p, ", \"ext_flags\": \"%s\"", ext_flags);
+
+	nl_dump(p, " }\n");
+
+	if (link_cache)
+		nl_cache_put(link_cache);
+}
+
 static void neigh_dump_line(struct nl_object *a, struct nl_dump_params *p)
 {
 	char dst[INET6_ADDRSTRLEN+5], lladdr[INET6_ADDRSTRLEN+5];
@@ -1196,6 +1262,7 @@ static struct nl_object_ops neigh_obj_ops = {
 	    [NL_DUMP_LINE]	= neigh_dump_line,
 	    [NL_DUMP_DETAILS]	= neigh_dump_details,
 	    [NL_DUMP_STATS]	= neigh_dump_stats,
+	    [NL_DUMP_JSON]	= neigh_dump_json,
 	},
 	.oo_compare		= neigh_compare,
 	.oo_keygen		= neigh_keygen,
