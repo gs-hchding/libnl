@@ -243,6 +243,58 @@ static void nh_dump_details(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
 		nl_cache_put(link_cache);
 }
 
+static void nh_dump_json(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
+{
+	struct nl_cache *link_cache;
+	char buf[128];
+
+	link_cache = nl_cache_mngt_require_safe("route/link");
+
+	nl_dump(dp, "{ \"nexthop\": true");
+
+	// if (nh->ce_mask & NH_ATTR_ENCAP)
+	// 	nh_encap_dump(nh->rtnh_encap, dp);
+
+	if (nh->ce_mask & NH_ATTR_NEWDST)
+		nl_dump(dp, ", \"to\": \"%s\"",
+			nl_addr2str(nh->rtnh_newdst, buf, sizeof(buf)));
+
+	if (nh->ce_mask & NH_ATTR_VIA)
+		nl_dump(dp, ", \"via\", \"%s\"",
+			nl_addr2str(nh->rtnh_via, buf, sizeof(buf)));
+
+	if (nh->ce_mask & NH_ATTR_GATEWAY)
+		nl_dump(dp, ", \"gateway\": \"%s\"", nl_addr2str(nh->rtnh_gateway,
+						   buf, sizeof(buf)));
+
+	if(nh->ce_mask & NH_ATTR_IFINDEX) {
+		if (link_cache) {
+			nl_dump(dp, ", \"dev\": \"%s\"",
+				rtnl_link_i2name(link_cache,
+						 nh->rtnh_ifindex,
+						 buf, sizeof(buf)));
+		} else
+			nl_dump(dp, ", \"dev\": \"%d\"", nh->rtnh_ifindex);
+	}
+
+	if (nh->ce_mask & NH_ATTR_WEIGHT)
+		nl_dump(dp, ", \"weight\": \"%u\"", nh->rtnh_weight);
+
+	if (nh->ce_mask & NH_ATTR_REALMS)
+		nl_dump(dp, ", \"realm\": \"%04x:%04x\"",
+			RTNL_REALM_FROM(nh->rtnh_realms),
+			RTNL_REALM_TO(nh->rtnh_realms));
+
+	if (nh->ce_mask & NH_ATTR_FLAGS)
+		nl_dump(dp, ", \"flags\": \"%s\"", rtnl_route_nh_flags2str(nh->rtnh_flags,
+							buf, sizeof(buf)));
+
+	nl_dump(dp, "}, ");
+
+	if (link_cache)
+		nl_cache_put(link_cache);
+}
+
 void rtnl_route_nh_dump(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
 {
 	switch (dp->dp_type) {
@@ -254,6 +306,11 @@ void rtnl_route_nh_dump(struct rtnl_nexthop *nh, struct nl_dump_params *dp)
 	case NL_DUMP_STATS:
 		if (dp->dp_ivar == NH_DUMP_FROM_DETAILS)
 			nh_dump_details(nh, dp);
+		break;
+
+	case NL_DUMP_JSON:
+		if (dp->dp_ivar == NH_DUMP_FROM_JSON)
+			nh_dump_json(nh, dp);
 		break;
 
 	default:
@@ -304,7 +361,7 @@ void rtnl_route_nh_set_ifindex(struct rtnl_nexthop *nh, int ifindex)
 int rtnl_route_nh_get_ifindex(struct rtnl_nexthop *nh)
 {
 	return nh->rtnh_ifindex;
-}	
+}
 
 /* FIXME: Convert to return an int */
 void rtnl_route_nh_set_gateway(struct rtnl_nexthop *nh, struct nl_addr *addr)

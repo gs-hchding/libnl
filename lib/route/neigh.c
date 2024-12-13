@@ -546,7 +546,7 @@ static void neigh_dump_json(struct nl_object *a, struct nl_dump_params *p)
 
 	nl_dump(p, "{ \"type\": \"neigh\", \"msgtype\": \"%s\"", nl_msgtype_str(n->ce_msgtype));
 
-	nl_dump(p, "\"family\": \"%s\"", n->n_family == AF_UNSPEC ? "AF_UNSPEC" : \
+	nl_dump(p, ", \"family\": \"%s\"", n->n_family == AF_UNSPEC ? "AF_UNSPEC" : \
 		nl_af2str(n->n_family, buf, sizeof(buf)) );
 
 	if (n->ce_mask & NEIGH_ATTR_DST)

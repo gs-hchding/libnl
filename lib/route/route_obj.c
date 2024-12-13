@@ -162,6 +162,95 @@ static int route_clone(struct nl_object *_dst, struct nl_object *_src)
 	return 0;
 }
 
+static void route_dump_json(struct nl_object *a, struct nl_dump_params *p)
+{
+	struct rtnl_route *r = (struct rtnl_route *) a;
+	int cache = 0, flags;
+	char buf[64];
+
+	if (r->rt_flags & RTM_F_CLONED)
+		cache = 1;
+
+	if (r->ce_msgtype < RTM_BASE) {
+		nl_dump(p, "{ \"type\": \"neigh\", \"msgtype\": \"%s\" }\n", \
+			nl_nlmsgtype2str(r->ce_msgtype, buf, sizeof(buf)));
+		return ;
+	}
+	nl_dump(p, "{ \"type\": \"neigh\", \"msgtype\": \"%s\"", nl_msgtype_str(r->ce_msgtype));
+
+	nl_dump(p, ", \"family\": \"%s\"", nl_af2str(r->rt_family, buf, sizeof(buf)));
+
+	nl_dump(p, ", \"cache\": %s", cache ? "true" : "false");
+
+	if (!(r->ce_mask & ROUTE_ATTR_DST) ||
+	    (nl_addr_get_prefixlen(r->rt_dst) == 0 &&
+	     nl_addr_get_len(r->rt_dst) > 0 && nl_addr_iszero(r->rt_dst)))
+		nl_dump(p, "\"default\": true");
+
+	nl_dump(p, ", \"dest\": \"%s\": ", nl_addr2str(r->rt_dst, buf, sizeof(buf)));
+
+	if (r->ce_mask & ROUTE_ATTR_TABLE && !cache)
+		nl_dump(p, ", \"table\": \"%s\" ",
+			rtnl_route_table2str(r->rt_table, buf, sizeof(buf)));
+
+	if (r->ce_mask & ROUTE_ATTR_TYPE)
+		nl_dump(p, ", \"type\": \"%s\" ",
+			nl_rtntype2str(r->rt_type, buf, sizeof(buf)));
+
+	if (r->ce_mask & ROUTE_ATTR_TOS && r->rt_tos != 0)
+		nl_dump(p, ", \"tos\": \"%#x\"", r->rt_tos);
+
+	if (r->ce_mask & ROUTE_ATTR_NHID)
+		nl_dump(p, ", \"nhid\": \"%u\"", r->rt_nhid);
+
+	if (r->ce_mask & ROUTE_ATTR_MULTIPATH) {
+		struct rtnl_nexthop *nh;
+
+		nl_dump(p, ", \"nexthop\": [");
+		nl_list_for_each_entry(nh, &r->rt_nexthops, rtnh_list) {
+			p->dp_ivar = NH_DUMP_FROM_JSON;
+			rtnl_route_nh_dump(nh, p);
+		}
+		nl_dump(p, "{ \"end\": true } ]");
+	}
+
+	flags = r->rt_flags & ~(RTM_F_CLONED);
+	if (r->ce_mask & ROUTE_ATTR_FLAGS && flags) {
+
+		nl_dump(p, ", \"flags\": \"");
+
+#define PRINT_FLAG(f) if (flags & RTNH_F_##f) { \
+		flags &= ~RTNH_F_##f; nl_dump(p, #f "%s", flags ? "," : ""); }
+		PRINT_FLAG(DEAD);
+		PRINT_FLAG(ONLINK);
+		PRINT_FLAG(PERVASIVE);
+#undef PRINT_FLAG
+
+#define PRINT_FLAG(f) if (flags & RTM_F_##f) { \
+		flags &= ~RTM_F_##f; nl_dump(p, #f "%s", flags ? "," : ""); }
+		PRINT_FLAG(NOTIFY);
+		PRINT_FLAG(EQUALIZE);
+		PRINT_FLAG(PREFIX);
+#undef PRINT_FLAG
+
+#define PRINT_FLAG(f) if (flags & RTCF_##f) { \
+		flags &= ~RTCF_##f; nl_dump(p, #f "%s", flags ? "," : ""); }
+		PRINT_FLAG(NOTIFY);
+		PRINT_FLAG(REDIRECTED);
+		PRINT_FLAG(DOREDIRECT);
+		PRINT_FLAG(DIRECTSRC);
+		PRINT_FLAG(DNAT);
+		PRINT_FLAG(BROADCAST);
+		PRINT_FLAG(MULTICAST);
+		PRINT_FLAG(LOCAL);
+#undef PRINT_FLAG
+
+		nl_dump(p, "\"");
+	}
+
+	nl_dump(p, " }\n");
+}
+
 static void route_dump_line(struct nl_object *a, struct nl_dump_params *p)
 {
 	struct rtnl_route *r = (struct rtnl_route *) a;
@@ -1552,6 +1641,7 @@ struct nl_object_ops route_obj_ops = {
 	    [NL_DUMP_LINE]	= route_dump_line,
 	    [NL_DUMP_DETAILS]	= route_dump_details,
 	    [NL_DUMP_STATS]	= route_dump_stats,
+	    [NL_DUMP_JSON]	= route_dump_json,
 	},
 	.oo_compare		= route_compare,
 	.oo_keygen		= route_keygen,

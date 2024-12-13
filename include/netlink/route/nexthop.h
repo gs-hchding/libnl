@@ -16,6 +16,7 @@ extern "C" {
 struct rtnl_nexthop;
 
 enum {
+	NH_DUMP_FROM_JSON = -3,
 	NH_DUMP_FROM_ONELINE = -2,
 	NH_DUMP_FROM_DETAILS = -1,
 	NH_DUMP_FROM_ENV = 0,

@@ -881,13 +881,27 @@ static void link_dump_json(struct nl_object *obj, struct nl_dump_params *p)
 	nl_dump(p, "\"family\": \"%s\", ", link->l_family == AF_UNSPEC ? "AF_UNSPEC" : \
 		nl_af2str(link->l_family, buf, sizeof(buf)) );
 
-	nl_dump(p, "\"name\": \"%s\", \"arptype\": \"%s\", ", link->l_name, nl_addr2str(link->l_addr, buf, sizeof(buf)));
+	nl_dump(p, "\"name\": \"%s\", \"arptype\": \"%s\", ", link->l_name, nl_llproto2str(link->l_arptype, buf, sizeof(buf)));
 	nl_dump(p, "\"addr\": \"%s\", ", nl_addr2str(link->l_addr, buf, sizeof(buf)));
 	nl_dump(p, "\"perm-addr\": \"%s\", ", nl_addr2str(link->l_paddr, buf, sizeof(buf)));
 	if (link->ce_mask & LINK_ATTR_MASTER) {
 		_nl_auto_rtnl_link struct rtnl_link *master = rtnl_link_get(cache, link->l_master);
 		nl_dump(p, "\"master\": \"%s\", ", master ? master->l_name : "none");
 	}
+
+	if (link->ce_mask & LINK_ATTR_LINK) {
+		if (cache && !(link->ce_mask & LINK_ATTR_LINK_NETNSID)) {
+			_nl_auto_rtnl_link struct rtnl_link *ll = rtnl_link_get(cache, link->l_link);
+
+			nl_dump(p, "\"slave-of\": \"%s\", ", ll ? ll->l_name : "NONE");
+		} else
+			nl_dump(p, "\"slave-of\": \"%d\", ", link->l_link);
+	}
+	if (link->ce_mask & LINK_ATTR_LINK_NETNSID)
+		nl_dump(p, "\"link-netnsid\": \"%d\", ", link->l_link_netnsid);
+
+	if (link->ce_mask & LINK_ATTR_GROUP)
+		nl_dump(p, "\"group\": \"%u\", ", link->l_group);
 
 	nl_dump(p, "\"flags\": \"%s\" }\n", rtnl_link_flags2str(link->l_flags, buf, sizeof(buf)));
 

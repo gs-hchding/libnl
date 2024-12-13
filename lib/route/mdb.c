@@ -304,6 +304,32 @@ static void mdb_dump_line(struct nl_object *obj, struct nl_dump_params *p)
 	}
 }
 
+static void mdb_entry_dump_json(struct rtnl_mdb_entry *entry,
+                                struct nl_dump_params *p)
+{
+	char buf[INET6_ADDRSTRLEN];
+
+	nl_dump(p, "{ \"port\": \"%d\", ", entry->ifindex);
+	nl_dump(p, "\"vid\": \"%d\", ", entry->vid);
+	nl_dump(p, "\"proto\": \"0x%04x\", ", entry->proto);
+	nl_dump(p, "\"address\": \"%s\" }, ", nl_addr2str(entry->addr, buf, sizeof(buf)));
+}
+
+static void mdb_dump_json(struct nl_object *obj, struct nl_dump_params *p)
+{
+	struct rtnl_mdb *mdb = (struct rtnl_mdb *) obj;
+	struct rtnl_mdb_entry *_mdb;
+
+	nl_dump(p, "{ \"type\": \"mdb\", \"msgtype\": \"%s\", ", nl_msgtype_str(mdb->ce_msgtype));
+	nl_dump(p, "\"dev\": \"%d\", \"list\": [", mdb->ifindex);
+
+	nl_list_for_each_entry(_mdb, &mdb->mdb_entry_list, mdb_list) {
+		p->dp_ivar = NH_DUMP_FROM_ONELINE;
+		mdb_entry_dump_json(_mdb, p);
+	}
+	nl_dump(p, "{ \"end\": true } ] }\n");
+}
+
 static void mdb_dump_details(struct nl_object *obj, struct nl_dump_params *p)
 {
 	mdb_dump_line(obj, p);
@@ -424,6 +450,7 @@ static struct nl_object_ops mdb_obj_ops = {
 	            [NL_DUMP_LINE]    = mdb_dump_line,
 	            [NL_DUMP_DETAILS] = mdb_dump_details,
 	            [NL_DUMP_STATS]   = mdb_dump_stats,
+	            [NL_DUMP_JSON]   = mdb_dump_json,
 	},
 	.oo_clone = mdb_clone,
 	.oo_compare = mdb_compare,
